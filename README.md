@@ -7,3 +7,4 @@ In "\functions" the following files are stored:
 - model.py: This class provides routines to implement optimal control problems of the form int_0^\infty h(x) + u^\top R u dt subject to x'=f(x)+g(x)u, x(0)=x0 and solve the corresponding open-loop boundary value problem.
 - observer.py: This class provides routines to monitor the progress of the RKHS-PI algorithm and plot the results.
 - auxFunctions.py: This functions implements the RKHS-PI algorithm and routines to find the best parameter gamma for the kernels used in the surrogate model. 
+The files VanDerPol.py, ToyExample.py, LinearHEDirichlet1D.py, and NonlinearHEDirichlet1D.py provide scripts that generate a surrogate model for the value function of the corresponding model problem using the RKHS-PI method.
