@@ -2,20 +2,28 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import time
 
 # -----------------------------------------------------------------------------
 # This functions implements the RKHS-PI algorithm and routines to find the best
 # parameter gamma for the kernels used in the surrogate model
 # -----------------------------------------------------------------------------
 
+ 
 
 def RKHSPI(model,surrogate,nMaxPI,nMaxGreedy,observer,testPoint,VFinput,VFoutputTrue): # RKHS-PI algorithm
+    observer.addQuadraticStandart(np.min(model.V0(testPoint)/np.sum(testPoint**2,0)),np.max(model.V0(testPoint)/np.sum(testPoint**2,0)))
+    trueError  = np.sqrt( np.sum(np.abs(VFoutputTrue-model.V0(VFinput))**2)/np.sum(np.abs(VFoutputTrue)**2))
+    observer.addObjectStandart(trueError,0,0,0)    
+    time0 = time.time()
     for j in range(nMaxPI):
         if  j==0:
             mu              = lambda x: model.stableControl(x)
             F               = lambda x: model.getF(x,mu(x))
             rhs             = lambda x: model.getRHS(x,mu(x))
+            time1 = time.time()
             surrogate.doFGreedy(F,rhs,testPoint,nMaxGreedy,observer,10**(-8))
+            print("Time for F-Greedy: " + str(time.time()-time1) + " seconds")
             maxFGreedyError = surrogate.trainError[-1]
             oldSRVal        = 0
         else:
@@ -31,10 +39,12 @@ def RKHSPI(model,surrogate,nMaxPI,nMaxGreedy,observer,testPoint,VFinput,VFoutput
         evalSR     = surrogate.kernel.evalFunc(FCenterVal,testPoint,center,alpha)  
         isPos         = np.min(evalSR)>=0
         hasLowerBound = np.min(evalSR - 0.5 * model.lambdaMin * np.sum(testPoint**2,0) ) >= 0
-        hasUpperBound = np.max(evalSR - 2   * model.lambdaMax * np.sum(testPoint**2,0) ) <= 0
+        hasUpperBound = np.max(evalSR - 2   * model.lambdaMax * np.sum(testPoint**2,0) ) <= 0   
+        observer.addQuadraticStandart(np.min(evalSR/np.sum(testPoint**2,0)),np.max(evalSR/np.sum(testPoint**2,0)))
         print(str(j) + " Iteration: True-Error = " + str( trueError ) + ", Residual-Error = " + str(maxFGreedyError) +", stagnation-Error = " + str( np.max(np.abs(oldSRVal-surrogate.kernel.evalFunc(FCenterVal,testPoint,center,alpha))) )+", is positive = " + str(isPos)+", Lower Bound = " + str(hasLowerBound)+", Upper Bound = " + str(hasUpperBound))
         observer.addObjectStandart(trueError,0,maxFGreedyError,np.max(np.abs(oldSRVal-surrogate.kernel.evalFunc(FCenterVal,testPoint,center,alpha))))
         oldSRVal = surrogate.kernel.evalFunc(FCenterVal,testPoint,center,alpha)    
+    print("Time for F-Greedy: " + str(time.time()-time0) + " seconds")
        
 def findBestGamma(model,surrogate,nMaxGreedy,observer,testPoint,gammaList): 
     gammaListVal    = 1000+np.zeros(len(gammaList))
@@ -54,7 +64,16 @@ def findBestGamma(model,surrogate,nMaxGreedy,observer,testPoint,gammaList):
     return gammaList[bestGammaIndex], gammaListVal[bestGammaIndex] 
             
 
-def RKHSPIProductKernel(model,surrogate,nMaxPI,nMaxGreedy,observer,testPoint,VFinput,VFoutputTrue): # RKHS-PI algorithm for product kernels
+
+
+
+
+def RKHSPIProductKernel(model,surrogate,nMaxPI,nMaxGreedy,observer,testPoint,VFinput,VFoutputTrue):
+    observer.addQuadraticQuadKernel(np.min(model.V0(testPoint)/np.sum(testPoint**2,0)),np.max(model.V0(testPoint)/np.sum(testPoint**2,0)))
+
+    trueError  = np.sqrt( np.sum(np.abs(VFoutputTrue-model.V0(VFinput))**2)/np.sum(np.abs(VFoutputTrue)**2))
+    observer.addObjectQuadKernel(trueError,0,0,0)
+
     for j in range(nMaxPI):
         if  j==0:
             mu              = lambda x: model.stableControl(x)
@@ -75,6 +94,7 @@ def RKHSPIProductKernel(model,surrogate,nMaxPI,nMaxGreedy,observer,testPoint,VFi
         trueError  = np.sqrt( np.sum(np.abs(VFoutputTrue-surrogate.kernel.evalFunc(FCenterVal,VFinput,center,alpha))**2)/np.sum(np.abs(VFoutputTrue)**2))
         evalSR     = surrogate.kernel.evalFunc(FCenterVal,testPoint,center,alpha)  
         isPos         = np.min(evalSR)>=0
+        observer.addQuadraticQuadKernel(np.min(evalSR/np.sum(testPoint**2,0)),np.max(evalSR/np.sum(testPoint**2,0)))
         hasLowerBound = np.min(evalSR - 0.5 * model.lambdaMin * np.sum(testPoint**2,0) ) >= 0
         hasUpperBound = np.max(evalSR - 2   * model.lambdaMax * np.sum(testPoint**2,0) ) <= 0
         print(str(j) + " Iteration: True-Error = " + str( trueError ) + ", Residual-Error = " + str(maxFGreedyError) +", stagnation-Error = " + str( np.max(np.abs(oldSRVal-surrogate.kernel.evalFunc(FCenterVal,testPoint,center,alpha))) )+", is positive = " + str(isPos)+", Lower Bound = " + str(hasLowerBound)+", Upper Bound = " + str(hasUpperBound))

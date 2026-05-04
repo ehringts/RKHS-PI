@@ -116,7 +116,7 @@ class SurrogateProductKernel(): # Surrogate model for product kernels
              self.C          = oldSelf.C    
              self.FCenterVal = oldSelf.FCenterVal
 
-    def doFGreedy(self,F,rhs,testPonits,nMaxGreedy,observer,eps=10**(-16),outputFlag = True):
+    def doFGreedy(self,F,rhs,testPonits,nMaxGreedy,observer,eps=10**(-16),outputFlag = False):
 
         rhsTestPoints       = rhs(testPonits)
         fy                  = F(testPonits)

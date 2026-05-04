@@ -111,9 +111,9 @@ class QuadMatern(Kernel):
     def phiRR(self,r): return self.gamma**4 * np.exp(-self.gamma*r) 
 
 class Gauss(Kernel):
-    def phi(self,r):   return np.exp(-self.gamma*(r**2)) 
-    def phiR(self,r):  return (-2)*self.gamma*np.exp(-self.gamma*(r**2)) 
-    def phiRR(self,r): return 4*self.gamma**2 * np.exp(-self.gamma*(r**2)) 
+    def phi(self,r):   return np.exp(-(self.gamma*r)**2) 
+    def phiR(self,r):  return (-2)*self.gamma**2 * np.exp(-(self.gamma*r)**2) 
+    def phiRR(self,r): return 4*self.gamma**4 * np.exp(-(self.gamma*r)**2) 
 
 class InvMulti(Kernel):
     def phi(self,r):   return 1/np.sqrt(1+self.gamma*(r**2)) 
@@ -323,9 +323,9 @@ class QuadMaternProduct(KernelProduct):
     def phiRR(self,r): return self.gamma**4 * np.exp(-self.gamma*r) 
 
 class GaussProduct(KernelProduct):
-    def phi(self,r):   return np.exp(-self.gamma*(r**2)) 
-    def phiR(self,r):  return (-2)*self.gamma*np.exp(-self.gamma*(r**2)) 
-    def phiRR(self,r): return 4*self.gamma**2 * np.exp(-self.gamma*(r**2)) 
+    def phi(self,r):   return np.exp(-(self.gamma*r)**2) 
+    def phiR(self,r):  return (-2)*self.gamma**2 * np.exp(-(self.gamma*r)**2) 
+    def phiRR(self,r): return 4*self.gamma**4 * np.exp(-(self.gamma*r)**2) 
 
 class InvMultiProduct(KernelProduct):
     def phi(self,r):   return 1/np.sqrt(1+self.gamma*(r**2)) 

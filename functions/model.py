@@ -123,9 +123,14 @@ class HEDirichlet1D(Model): # Nonlinear Heat Equation with Dirichlet boundary co
         self.makeFEMSystem(NumbNodes)
 
         self.matrixKGain    = la.solve_continuous_are( self.alpha * self.lapA, self.B, self.stateWeight*np.eye(self.A.shape[0]), self.controlWeight*np.eye(self.B.shape[1]), e=None, s=None, balanced=True)
-        self.stableControl  = lambda x: (- (1/(self.controlWeight)) * self.g(x).T @ (self.matrixKGain @ x))*0
+        #self.stableControl  = lambda x: (- (1/(self.controlWeight)) * self.g(x).T @ (self.matrixKGain @ x))*0
         self.lambdaMin      = np.linalg.eigvals(self.matrixKGain).min().real
         self.lambdaMax      = np.linalg.eigvals(self.matrixKGain).max().real
+        P0                 = ((self.lambdaMax-self.lambdaMin)/2) *np.eye(self.A.shape[0])
+        self.V0            = lambda x: np.sum(x * (P0@x),0)
+        self.gradV_0       = lambda x: 2*(P0@x)
+        self.stableControl = lambda x: self.getMuFromSr(x,self.gradV_0(x))
+
         self.trueVFKnown    = False
         self.trueVF         = lambda x:  np.sum(x * (self.matrixKGain  @ x),0)
         self.getMuFromSr    = lambda x,srX: (-0.5/self.controlWeight)* (self.g(x).T @ srX) 
@@ -205,7 +210,9 @@ class VanDerPol(Model): # Van der Pol oscillator
         self.matrixKGain   = la.solve_continuous_are(np.c_[np.r_[0,1],np.r_[1,1]],np.atleast_2d(np.array([0,1])).T,stateWeight* np.eye(2), controlWeight, e=None, s=None, balanced=True)
         self.lambdaMin     = np.linalg.eigvals(self.matrixKGain).min().real
         self.lambdaMax     = np.linalg.eigvals(self.matrixKGain).max().real
-        self.stableControl = lambda x: np.atleast_2d(-(1/self.controlWeight) * np.sum(self.g(x) * (self.matrixKGain  @ x),0)) 
+        P0                 = self.matrixKGain 
+        self.V0            = lambda x: np.sum(x * (P0@x),0)
+        self.stableControl = lambda x: np.atleast_2d(-(1/self.controlWeight) * np.sum(self.g(x) * (P0  @ x),0)) 
         self.getMuFromSr   = lambda x,srX: (-0.5/self.controlWeight)* (self.g(x).T @ srX) 
         self.getF          = lambda x,muX: self.f(x)+self.g(x)@muX
         self.getRHS        = lambda x,muX: -self.stateWeight * np.sum(x**2,0) -self.controlWeight * np.sum(muX**2,0) 
@@ -223,10 +230,14 @@ class ToyExample: # Toy example from the paper
       
         self.stateWeight   = 1
         self.controlWeight = 1
-        self.matrixKGain   = la.solve_continuous_are(np.c_[np.r_[-1,1],np.r_[-0.5,-0.5]],np.atleast_2d(np.array([0,1])).T,self.stateWeight* np.eye(2), self.controlWeight, e=None, s=None, balanced=True)
+        self.matrixKGain   = la.solve_continuous_are(np.c_[np.r_[-1,1],np.r_[-0.5,-0.5]],np.atleast_2d(np.array([0,0])).T,self.stateWeight* np.eye(2), self.controlWeight, e=None, s=None, balanced=True)
         self.lambdaMin     = np.linalg.eigvals(self.matrixKGain).min().real
         self.lambdaMax     = np.linalg.eigvals(self.matrixKGain).max().real
-        self.stableControl = lambda x: (-3/2)*np.sin(x[0,:])*(x[0,:]+x[1,:])
+        P0                 = self.matrixKGain
+        self.V0            = lambda x: np.sum(x * (P0@x),0)
+        self.gradV_0       = lambda x: 2*(P0@x)
+        self.stableControl = lambda x: (-0.5/self.controlWeight)* np.sum((self.g(x) * self.gradV_0(x)),0) 
+
         self.trueVF        = lambda x: 0.5*x[0,:]**2+x[1,:]**2
         self.getMuFromSr   = lambda x,srX: (-0.5/self.controlWeight)* np.sum((self.g(x) * srX),0) 
         self.getF          = lambda x,muX: self.f(x)+self.g(x)*muX
@@ -237,3 +248,63 @@ class ToyExample: # Toy example from the paper
     def g(self,x):                              return np.c_[0*x[0,:],np.sin(x[0,:])].T
     def jacobi_of_f_transposed_dot_p(self,x,p): pass
 
+class ConUnconExample():
+    def __init__(self,a=1):
+        self.controlWeight = 1.0
+        self.controlDim = 1
+
+        self.h = lambda x: 0.5 * np.exp(2.0 * np.sum(x**2, axis=0)) * x[0, :]**2
+
+        A = np.array([[0.25, -1.0],
+                      [1.0,   0.0]])
+        B = np.array([[1.0],
+                      [0.0]])
+        Q = np.array([[0.5, 0.0],
+                      [0.0, 0.0]])
+        R = np.array([[1.0]])
+
+        self.matrixKGain = la.solve_continuous_are(A, B, Q, R)
+        self.lambdaMin   = np.linalg.eigvals(self.matrixKGain).min().real
+        self.lambdaMax   = np.linalg.eigvals(self.matrixKGain).max().real
+
+        P0           = np.eye(self.matrixKGain.shape[0])*a
+        self.V0      = lambda x: np.sum(x * (P0 @ x), axis=0)
+        self.gradV_0 = lambda x: 2.0 * (P0 @ x)
+
+        self.stableControl = lambda x: (-0.5 / self.controlWeight) * np.sum(
+            self.g(x) * self.gradV_0(x), axis=0
+        )
+
+        self.trueVF  = lambda x: np.exp(np.sum(x**2, axis=0)) - 1.0
+        self.falseVF = lambda x: 0.5*(1-np.exp(np.sum(x**2, axis=0)))
+
+        self.getMuFromSr = lambda x, srX: (-0.5 / self.controlWeight) * np.sum(
+            self.g(x) * srX, axis=0
+        )
+        self.getF = lambda x, muX: self.f(x) + self.g(x) * muX
+        self.getRHS = lambda x, muX: -self.h(x) - self.controlWeight * muX**2
+
+    def f(self, x):
+        r2 = np.sum(x**2, axis=0)
+        return np.vstack((
+            0.25 * np.exp(r2) * x[0, :] - x[1, :],
+            x[0, :]
+        ))
+
+    def g(self, x):
+        return np.vstack((
+            np.ones_like(x[0, :]),
+            np.zeros_like(x[0, :])
+        ))
+
+    def jacobi_of_f_transposed_dot_p(self, x, p):
+        r2 = np.sum(x**2, axis=0)
+        er2 = np.exp(r2)
+
+        df1_dx1 = 0.25 * er2 * (1.0 + 2.0 * x[0, :]**2)
+        df1_dx2 = 0.5 * er2 * x[0, :] * x[1, :] - 1.0
+
+        return np.vstack((
+            df1_dx1 * p[0, :] + p[1, :],
+            df1_dx2 * p[0, :]
+        ))
